@@ -1,0 +1,11 @@
+services:
+  environment:
+    build:
+      context: Docker
+      args: {}
+    ports:
+      - 2222:22
+    volumes:
+      - type: bind
+        source: "keys/ssh_key.pub"
+        target: "/etc/authorized_keys/jetbrains"
