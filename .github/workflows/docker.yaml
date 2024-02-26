@@ -11,24 +11,30 @@ env:
   JETBRAINS_PRODUCTS: '["PY"]'
 
 jobs:
-  get-versions:
-    name: Get Versions
+  versions:
     runs-on: ubuntu-latest
     outputs:
-      versions: ${{ steps.run.outputs.product_versions }}
+      versions: ${{ steps.versions.outputs.products }}
     steps:
-      - run: |
-          curl ${{ env.JETBRAINS_PRODUCTS_LIST_URL }} | jq -c 'map(select(.intellijProductCode == ["PY"][]) | .intellijProductCode as $code | .releases[] | select(.type == "release" and .date >= "2023") | {$code, date, type, build, version, majorVersion})' | (echo -n "product_versions=" && cat) >> $GITHUB_OUTPUT
+      - id: versions
+        run: |
+         echo "products=$(curl ${{ env.JETBRAINS_PRODUCTS_LIST_URL }} | jq -c 'map(select(.intellijProductCode == ${{ env.JETBRAINS_PRODUCTS }}[]) | .intellijProductCode as $code | .name as $name | .releases[] | select(.type == "release" and .date >= "2023") | {$code, $name, date, type, build, version, majorVersion})')" >> $GITHUB_OUTPUT
 
   docker-build:
-    needs: get-versions
+    needs: versions
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        products: ${{ fromJson(needs.get-versions.outputs.versions) }}
+        include: ${{ fromJSON(needs.versions.outputs.versions) }}
     steps:
-      - run: echo ${{matrix.products}}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: Docker/${{ matrix.name }}
+          push: false
+          tags: ${{ matrix.code }}-${{ matrix.version }}:latest
+      - run: echo ${{ toJson(matrix) }} and ${{ matrix.version }}
 
 
 
